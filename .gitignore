@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+# Secrets — NEVER commit these
+appsettings.Development.json
+appsettings.Local.json
+k8s/secrets.yaml
+.env
+*.env
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db

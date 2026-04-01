@@ -1,0 +1,100 @@
+# k8s/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kong-portal
+---
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-portal
+  namespace: kong-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-portal
+  template:
+    metadata:
+      labels:
+        app: kong-portal
+    spec:
+      containers:
+      - name: kong-portal
+        image: ghcr.io/your-org/kong-portal:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: kong-portal-secrets
+              key: DB_CONNECTION
+        - name: Kong__AdminUrl
+          valueFrom:
+            secretKeyRef:
+              name: kong-portal-secrets
+              key: KONG_ADMIN_URL
+        - name: ASPNETCORE_ENVIRONMENT
+          value: Production
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+# k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-portal
+  namespace: kong-portal
+spec:
+  type: ClusterIP
+  selector:
+    app: kong-portal
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+# k8s/ingress.yaml  — internal only
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kong-portal
+  namespace: kong-portal
+  annotations:
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+spec:
+  rules:
+  - host: kong-portal.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kong-portal
+            port:
+              number: 80
+---
+# k8s/secrets.yaml — DO NOT COMMIT — apply manually
+# kubectl create secret generic kong-portal-secrets \
+#   --from-literal=DB_CONNECTION='Server=...;Database=KongPortal;...' \
+#   --from-literal=KONG_ADMIN_URL='http://kong-admin:8001' \
+#   -n kong-portal
