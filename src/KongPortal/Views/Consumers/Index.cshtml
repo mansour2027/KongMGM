@@ -1,0 +1,158 @@
+@model KongPortal.Models.ViewModels.ConsumerListViewModel
+@{ ViewData["Title"] = "Consumers"; }
+
+<!-- Toolbar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="selectAll" />
+                <label class="form-check-label fw-semibold" for="selectAll">Select All</label>
+            </div>
+            <button class="btn btn-warning btn-sm" onclick="bulkRotate()">
+                <i class="bi bi-arrow-repeat me-1"></i>Rotate Selected
+            </button>
+            <div class="vr"></div>
+            <form method="get" class="d-flex gap-2 align-items-center">
+                <input name="team" value="@Model.FilterTeam"
+                       class="form-control form-control-sm" placeholder="Filter team" style="width:140px" />
+                <select name="authType" class="form-select form-select-sm" style="width:140px">
+                    <option value="">All auth types</option>
+                    <option value="key-auth" selected="@(Model.FilterAuthType == "key-auth")">key-auth</option>
+                    <option value="jwt" selected="@(Model.FilterAuthType == "jwt")">jwt</option>
+                    <option value="basic-auth" selected="@(Model.FilterAuthType == "basic-auth")">basic-auth</option>
+                    <option value="hmac-auth" selected="@(Model.FilterAuthType == "hmac-auth")">hmac-auth</option>
+                    <option value="oauth2" selected="@(Model.FilterAuthType == "oauth2")">oauth2</option>
+                </select>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" name="overdueOnly"
+                           id="overdueOnly" value="true" @(Model.OverdueOnly ? "checked" : "") />
+                    <label class="form-check-label" for="overdueOnly">Overdue only</label>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
+            </form>
+            <div class="ms-auto">
+                <span class="badge bg-secondary">@Model.TotalCount total</span>
+                @if (Model.OverdueCount > 0)
+                {
+                    <span class="badge bg-warning text-dark ms-1">@Model.OverdueCount overdue</span>
+                }
+                @if (Model.NeverRotatedCount > 0)
+                {
+                    <span class="badge bg-danger ms-1">@Model.NeverRotatedCount never rotated</span>
+                }
+                <a href="/consumers/create" class="btn btn-primary btn-sm ms-2">
+                    <i class="bi bi-plus-lg me-1"></i>Add Consumer
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:40px">☑</th>
+                    <th>Consumer</th>
+                    <th>Service</th>
+                    <th>Team</th>
+                    <th>Auth Type</th>
+                    <th>Contact</th>
+                    <th>Last Rotated</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var c in Model.Consumers)
+            {
+                var rowClass = c.IsOverdue ? "overdue" : (c.NeverRotated ? "table-warning" : "");
+                <tr class="@rowClass">
+                    <td>
+                        <input type="checkbox" class="form-check-input consumer-cb"
+                               value="@c.Kong.Username" />
+                    </td>
+                    <td>
+                        <a href="/consumers/@c.Kong.Username" class="fw-semibold text-decoration-none">
+                            @c.Kong.Username
+                        </a>
+                        <div class="text-muted" style="font-size:0.75rem">@c.Kong.Id[..8]...</div>
+                    </td>
+                    <td>@(c.Profile?.ServiceName ?? <span class="text-muted">—</span>)</td>
+                    <td>@(c.Profile?.TeamName ?? <span class="text-muted">—</span>)</td>
+                    <td>
+                        @if (c.Profile?.AuthType != null)
+                        {
+                            <span class="badge badge-@c.Profile.AuthType">@c.Profile.AuthType</span>
+                        }
+                    </td>
+                    <td>
+                        @if (c.Profile?.ContactEmail != null)
+                        {
+                            <div>@c.Profile.ContactName</div>
+                            <div class="text-muted" style="font-size:0.75rem">@c.Profile.ContactEmail</div>
+                        }
+                    </td>
+                    <td>
+                        @if (c.Profile?.LastRotatedAt != null)
+                        {
+                            @c.Profile.LastRotatedAt.Value.ToString("dd MMM yyyy")
+                        }
+                        else
+                        {
+                            <span class="text-danger">Never</span>
+                        }
+                    </td>
+                    <td>
+                        @if (c.IsOverdue)
+                        {
+                            <span class="badge bg-warning text-dark">⚠️ Overdue</span>
+                        }
+                        else if (c.NeverRotated)
+                        {
+                            <span class="badge bg-danger">🔴 Never</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">✅ OK</span>
+                        }
+                    </td>
+                    <td>
+                        <a href="/consumers/@c.Kong.Username" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.consumer-cb').forEach(cb => cb.checked = this.checked);
+});
+
+async function bulkRotate() {
+    const selected = [...document.querySelectorAll('.consumer-cb:checked')].map(cb => cb.value);
+    if (!selected.length) return alert('Select at least one consumer');
+    if (!confirm(`Rotate ${selected.length} consumer(s)?`)) return;
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+    const resp = await fetch('/consumers/bulk-rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+        body: JSON.stringify(selected)
+    });
+    const result = await resp.json();
+    alert(`✅ ${result.succeeded} rotated, ❌ ${result.failed} failed`);
+    window.location.reload();
+}
+</script>
+@Html.AntiForgeryToken()
+}

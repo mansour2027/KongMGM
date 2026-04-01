@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+
+  # SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "KongPortal@123!"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost",
+             "-U", "sa", "-P", "KongPortal@123!", "-Q", "SELECT 1"]
+      interval: 10s
+      retries: 10
+
+  # Kong Database (Postgres for Kong)
+  kong-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kongpass
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 10s
+      retries: 5
+
+  # Kong migrations
+  kong-migration:
+    image: kong:3.4
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PG_DATABASE: kong
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    restart: on-failure
+
+  # Kong Gateway
+  kong:
+    image: kong:3.4
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PG_DATABASE: kong
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_LOG_LEVEL: info
+    ports:
+      - "8000:8000"   # Kong proxy
+      - "8001:8001"   # Kong Admin API
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      retries: 10
+
+  # Kong Portal App
+  kong-portal:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      ConnectionStrings__DefaultConnection: >
+        Server=sqlserver,1433;Database=KongPortal;
+        User Id=sa;Password=KongPortal@123!;
+        TrustServerCertificate=true;
+      Kong__AdminUrl: "http://kong:8001"
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      kong:
+        condition: service_healthy
+
+volumes:
+  sqldata:

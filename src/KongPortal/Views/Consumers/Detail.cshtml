@@ -1,0 +1,223 @@
+@model KongPortal.Models.ViewModels.ConsumerViewModel
+@{ ViewData["Title"] = Model.Kong.Username; }
+
+<div class="row g-3">
+
+  <!-- Left: Profile -->
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Extended Profile</div>
+      <div class="card-body">
+        <form method="post" action="/consumers/@Model.Kong.Username/profile">
+          @Html.AntiForgeryToken()
+          <div class="mb-2">
+            <label class="form-label small">Service Name</label>
+            <input name="ServiceName" class="form-control form-control-sm"
+                   value="@Model.Profile?.ServiceName" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Team</label>
+            <input name="TeamName" class="form-control form-control-sm"
+                   value="@Model.Profile?.TeamName" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Environment</label>
+            <select name="Environment" class="form-select form-select-sm">
+              <option value="Production" selected="@(Model.Profile?.Environment == "Production")">Production</option>
+              <option value="Staging" selected="@(Model.Profile?.Environment == "Staging")">Staging</option>
+              <option value="Development" selected="@(Model.Profile?.Environment == "Development")">Development</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Auth Type</label>
+            <select name="AuthType" class="form-select form-select-sm">
+              <option value="key-auth">key-auth</option>
+              <option value="jwt">jwt</option>
+              <option value="basic-auth">basic-auth</option>
+              <option value="hmac-auth">hmac-auth</option>
+              <option value="oauth2">oauth2</option>
+            </select>
+          </div>
+          <hr />
+          <div class="mb-2">
+            <label class="form-label small">Contact Name</label>
+            <input name="ContactName" class="form-control form-control-sm"
+                   value="@Model.Profile?.ContactName" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Contact Email</label>
+            <input name="ContactEmail" type="email" class="form-control form-control-sm"
+                   value="@Model.Profile?.ContactEmail" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Contact Phone</label>
+            <input name="ContactPhone" class="form-control form-control-sm"
+                   value="@Model.Profile?.ContactPhone" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Slack Handle</label>
+            <input name="ContactSlack" class="form-control form-control-sm"
+                   value="@Model.Profile?.ContactSlack" placeholder="@username" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Rotation Interval (days)</label>
+            <input name="RotationIntervalDays" type="number" class="form-control form-control-sm"
+                   value="@(Model.Profile?.RotationIntervalDays ?? 90)" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm w-100">Save Profile</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Rotation -->
+    <div class="card">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>Rotation</span>
+        @if (Model.IsOverdue)
+        {
+            <span class="badge bg-warning text-dark">⚠️ Overdue</span>
+        }
+      </div>
+      <div class="card-body">
+        <div class="mb-2 small">
+          <strong>Last rotated:</strong>
+          @(Model.Profile?.LastRotatedAt?.ToString("dd MMM yyyy HH:mm") ?? "Never")
+        </div>
+        <div class="mb-3 small">
+          <strong>By:</strong> @(Model.Profile?.LastRotatedBy ?? "—")
+        </div>
+        <form method="post" action="/consumers/@Model.Kong.Username/rotate">
+          @Html.AntiForgeryToken()
+          <input type="hidden" name="authType" value="@(Model.Profile?.AuthType ?? "key-auth")" />
+          <button type="submit" class="btn btn-warning btn-sm w-100"
+                  onclick="return confirm('Rotate credentials for @Model.Kong.Username?')">
+            <i class="bi bi-arrow-repeat me-1"></i>Rotate Now
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Credentials -->
+  <div class="col-md-8">
+
+    <!-- Key Auth -->
+    @if (Model.KeyAuths.Any())
+    {
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold"><span class="badge badge-key-auth me-2">key-auth</span> (@Model.KeyAuths.Count)</span>
+          <form method="post" action="/consumers/@Model.Kong.Username/add-key">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-primary btn-sm">+ Add Key</button>
+          </form>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Key (masked)</th><th>Created</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var k in Model.KeyAuths)
+            {
+              <tr>
+                <td><code>@(k.Key[..8])••••••••</code></td>
+                <td class="text-muted small">
+                  @DateTimeOffset.FromUnixTimeSeconds(k.CreatedAt).ToString("dd MMM yyyy")
+                </td>
+                <td>
+                  <form method="post" action="/consumers/@Model.Kong.Username/delete-credential">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="authType" value="key-auth" />
+                    <input type="hidden" name="credId" value="@k.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Delete this key?')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- JWT -->
+    @if (Model.JwtCredentials.Any())
+    {
+      <div class="card mb-3">
+        <div class="card-header fw-semibold">
+          <span class="badge badge-jwt me-2">jwt</span> (@Model.JwtCredentials.Count)
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Key (iss)</th><th>Algorithm</th><th>Created</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var j in Model.JwtCredentials)
+            {
+              <tr>
+                <td><code>@j.Key[..8]...</code></td>
+                <td>@j.Algorithm</td>
+                <td class="text-muted small">
+                  @DateTimeOffset.FromUnixTimeSeconds(j.CreatedAt).ToString("dd MMM yyyy")
+                </td>
+                <td>
+                  <form method="post" action="/consumers/@Model.Kong.Username/delete-credential">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="authType" value="jwt" />
+                    <input type="hidden" name="credId" value="@j.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Delete this JWT?')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ACL Groups -->
+    @if (Model.AclGroups.Any())
+    {
+      <div class="card mb-3">
+        <div class="card-header fw-semibold">ACL Groups</div>
+        <div class="card-body">
+          @foreach (var g in Model.AclGroups)
+          {
+            <span class="badge bg-secondary me-1">@g.Group</span>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Rotation History -->
+    @if (Model.RotationHistory.Any())
+    {
+      <div class="card">
+        <div class="card-header fw-semibold">Rotation History</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Date</th><th>By</th><th>Auth Type</th><th>Confirmed</th><th>Deleted</th></tr></thead>
+            <tbody>
+            @foreach (var r in Model.RotationHistory.Take(10))
+            {
+              <tr>
+                <td>@r.RotatedAt.ToString("dd MMM yyyy HH:mm")</td>
+                <td>@r.RotatedBy</td>
+                <td><span class="badge bg-secondary">@r.AuthType</span></td>
+                <td>@(r.Confirmed ? "✅" : "⏳")</td>
+                <td>@(r.OldCredentialsDeleted ? "🗑️" : "—")</td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+  </div>
+</div>

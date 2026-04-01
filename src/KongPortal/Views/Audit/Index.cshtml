@@ -1,0 +1,57 @@
+@model List<KongPortal.Models.Domain.AuditLog>
+@{ ViewData["Title"] = "Audit Log"; }
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="d-flex gap-2 flex-wrap align-items-center">
+            <input name="action" class="form-control form-control-sm" placeholder="Action" style="width:140px"
+                   value="@Context.Request.Query["action"]" />
+            <input name="resource" class="form-control form-control-sm" placeholder="Resource" style="width:160px"
+                   value="@Context.Request.Query["resource"]" />
+            <input name="performedBy" class="form-control form-control-sm" placeholder="User" style="width:140px"
+                   value="@Context.Request.Query["performedBy"]" />
+            <input name="from" type="date" class="form-control form-control-sm" style="width:150px"
+                   value="@Context.Request.Query["from"]" />
+            <input name="to" type="date" class="form-control form-control-sm" style="width:150px"
+                   value="@Context.Request.Query["to"]" />
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Search</button>
+            <a href="/audit" class="btn btn-outline-danger btn-sm">Clear</a>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>When</th><th>Action</th><th>Resource</th>
+                    <th>Type</th><th>By</th><th>IP</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var log in Model)
+            {
+                <tr>
+                    <td class="text-muted small">@log.At.ToString("dd MMM HH:mm:ss")</td>
+                    <td><span class="badge bg-secondary">@log.Action</span></td>
+                    <td class="small">@log.Resource</td>
+                    <td class="small text-muted">@log.ResourceType</td>
+                    <td class="small">@log.PerformedBy</td>
+                    <td class="small text-muted">@log.IpAddress</td>
+                    <td>
+                        @if (log.Success)
+                        {
+                            <span class="text-success">✅</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger" title="@log.FailureReason">❌</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,38 @@
+@model List<KongPortal.Models.Kong.KongService>
+@{ ViewData["Title"] = "Services"; }
+
+<div class="d-flex justify-content-end mb-3">
+    <a href="/services/create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Add Service
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Name</th><th>Host</th><th>Port</th><th>Protocol</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var s in Model)
+            {
+                <tr>
+                    <td><a href="/services/@s.Id" class="fw-semibold text-decoration-none">@s.Name</a></td>
+                    <td class="text-muted">@s.Host</td>
+                    <td>@s.Port</td>
+                    <td><span class="badge bg-info text-dark">@s.Protocol</span></td>
+                    <td>@(s.Enabled ? "✅" : "❌")</td>
+                    <td>
+                        <a href="/services/@s.Id" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="/services/@s.Id/edit" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
