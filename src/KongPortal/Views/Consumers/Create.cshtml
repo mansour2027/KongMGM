@@ -1,0 +1,86 @@
+@{ ViewData["Title"] = "Add Consumer"; }
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header fw-semibold">New Consumer</div>
+      <div class="card-body">
+        <form method="post" action="/consumers/create">
+          @Html.AntiForgeryToken()
+
+          <h6 class="text-muted mb-3">Kong Identity</h6>
+          <div class="mb-3">
+            <label class="form-label">Username <span class="text-danger">*</span></label>
+            <input name="username" class="form-control" required
+                   pattern="^[a-z0-9\-_]+" placeholder="e.g. payment-service" />
+            <div class="form-text">Lowercase, hyphens and underscores only</div>
+          </div>
+
+          <hr />
+          <h6 class="text-muted mb-3">Extended Profile</h6>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Service Name</label>
+              <input name="ServiceName" class="form-control" placeholder="Payment Gateway" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Team</label>
+              <input name="TeamName" class="form-control" placeholder="Payments Team" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Environment</label>
+              <select name="Environment" class="form-select">
+                <option value="Production">Production</option>
+                <option value="Staging">Staging</option>
+                <option value="Development">Development</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Auth Type</label>
+              <select name="AuthType" class="form-select">
+                <option value="key-auth">key-auth</option>
+                <option value="jwt">jwt</option>
+                <option value="basic-auth">basic-auth</option>
+                <option value="hmac-auth">hmac-auth</option>
+                <option value="oauth2">oauth2</option>
+              </select>
+            </div>
+          </div>
+
+          <hr />
+          <h6 class="text-muted mb-3">Contact</h6>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Contact Name</label>
+              <input name="ContactName" class="form-control" placeholder="Ahmed Al Rashid" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Email</label>
+              <input name="ContactEmail" type="email" class="form-control" placeholder="ahmed@company.com" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Contact Phone</label>
+              <input name="ContactPhone" class="form-control" placeholder="+971-50-000" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Slack Handle</label>
+              <input name="ContactSlack" class="form-control" placeholder="@ahmed" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Rotation Interval (days)</label>
+              <input name="RotationIntervalDays" type="number" class="form-control" value="90" />
+            </div>
+          </div>
+
+          <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-plus-lg me-1"></i>Create Consumer
+            </button>
+            <a href="/consumers" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

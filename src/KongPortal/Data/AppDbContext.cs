@@ -1,5 +1,6 @@
 using KongPortal.Models.Domain;
 using KongPortal.Security;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,12 +51,35 @@ public static class DbSeeder
 {
     public static async Task SeedRolesAsync(IServiceProvider services)
     {
-        var roleManager = services.GetRequiredService<Microsoft.AspNetCore.Identity.RoleManager<Microsoft.AspNetCore.Identity.IdentityRole>>();
-        string[] roles = [Roles.Admin, Roles.Operator, Roles.Viewer];
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+        string[] roles  = [Roles.Admin, Roles.Operator, Roles.Viewer];
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new Microsoft.AspNetCore.Identity.IdentityRole(role));
+                await roleManager.CreateAsync(new IdentityRole(role));
         }
+    }
+
+    public static async Task SeedAdminUserAsync(IServiceProvider services)
+    {
+        var userManager = services.GetRequiredService<UserManager<AppUser>>();
+
+        // Read from env — never hardcode
+        var email    = Environment.GetEnvironmentVariable("ADMIN_EMAIL")    ?? "admin@kongportal.internal";
+        var password = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "Admin@Portal123!";
+
+        if (await userManager.FindByEmailAsync(email) != null) return;
+
+        var user = new AppUser
+        {
+            UserName  = email,
+            Email     = email,
+            FullName  = "Portal Admin",
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(user, password);
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(user, Roles.Admin);
     }
 }

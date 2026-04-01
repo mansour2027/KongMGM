@@ -2,7 +2,6 @@ version: '3.8'
 
 services:
 
-  # SQL Server
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
@@ -14,12 +13,11 @@ services:
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost",
-             "-U", "sa", "-P", "KongPortal@123!", "-Q", "SELECT 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'KongPortal@123!' -Q 'SELECT 1' -No"]
       interval: 10s
+      timeout: 5s
       retries: 10
 
-  # Kong Database (Postgres for Kong)
   kong-db:
     image: postgres:15
     environment:
@@ -31,7 +29,6 @@ services:
       interval: 10s
       retries: 5
 
-  # Kong migrations
   kong-migration:
     image: kong:3.4
     command: kong migrations bootstrap
@@ -46,7 +43,6 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  # Kong Gateway
   kong:
     image: kong:3.4
     environment:
@@ -59,8 +55,8 @@ services:
       KONG_PROXY_LISTEN: "0.0.0.0:8000"
       KONG_LOG_LEVEL: info
     ports:
-      - "8000:8000"   # Kong proxy
-      - "8001:8001"   # Kong Admin API
+      - "8000:8000"
+      - "8001:8001"
     depends_on:
       kong-db:
         condition: service_healthy
@@ -69,7 +65,6 @@ services:
       interval: 10s
       retries: 10
 
-  # Kong Portal App
   kong-portal:
     build:
       context: .
@@ -77,11 +72,23 @@ services:
     ports:
       - "5000:8080"
     environment:
-      ConnectionStrings__DefaultConnection: >
+      # Database
+      ConnectionStrings__DefaultConnection: >-
         Server=sqlserver,1433;Database=KongPortal;
         User Id=sa;Password=KongPortal@123!;
         TrustServerCertificate=true;
+      # Kong
       Kong__AdminUrl: "http://kong:8001"
+      # First admin user — change before production
+      ADMIN_EMAIL: "admin@kongportal.internal"
+      ADMIN_PASSWORD: "Admin@Portal123!"
+      # SMTP — leave blank to skip email in dev
+      Notification__SmtpHost: ""
+      Notification__SmtpPort: "587"
+      Notification__SmtpUser: ""
+      Notification__SmtpPassword: ""
+      Notification__FromEmail: "kong-portal@internal.com"
+      Notification__UseSsl: "false"
       ASPNETCORE_ENVIRONMENT: Development
     depends_on:
       sqlserver:

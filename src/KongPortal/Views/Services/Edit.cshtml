@@ -1,0 +1,43 @@
+@model KongPortal.Models.Kong.KongService
+@{ ViewData["Title"] = "Edit — " + Model.Name; }
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header fw-semibold">Edit Service</div>
+      <div class="card-body">
+        <form method="post" action="/services/@Model.Id/edit">
+          @Html.AntiForgeryToken()
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input name="Name" class="form-control" value="@Model.Name" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Host</label>
+            <input name="Host" class="form-control" value="@Model.Host" required />
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Port</label>
+              <input name="Port" type="number" class="form-control" value="@Model.Port" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Protocol</label>
+              <select name="Protocol" class="form-select">
+                <option value="http" selected="@(Model.Protocol == "http")">http</option>
+                <option value="https" selected="@(Model.Protocol == "https")">https</option>
+              </select>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Path</label>
+            <input name="Path" class="form-control" value="@Model.Path" />
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="/services/@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

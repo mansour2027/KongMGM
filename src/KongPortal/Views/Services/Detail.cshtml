@@ -1,0 +1,116 @@
+@model KongPortal.Models.ViewModels.ServiceViewModel
+@{ ViewData["Title"] = Model.Service.Name; }
+
+<div class="row g-3">
+  <!-- Service Info -->
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>Service Info</span>
+        <span class="badge @(Model.Service.Enabled ? "bg-success" : "bg-secondary")">
+          @(Model.Service.Enabled ? "Active" : "Disabled")
+        </span>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><td class="text-muted">Host</td><td><code>@Model.Service.Host</code></td></tr>
+          <tr><td class="text-muted">Port</td><td>@Model.Service.Port</td></tr>
+          <tr><td class="text-muted">Protocol</td><td>@Model.Service.Protocol</td></tr>
+          <tr><td class="text-muted">ID</td><td class="small text-muted">@Model.Service.Id[..8]...</td></tr>
+        </table>
+        <div class="mt-3 d-flex gap-2">
+          <a href="/services/@Model.Service.Id/edit" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Edit
+          </a>
+          <form method="post" action="/services/@Model.Service.Id/delete" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-danger btn-sm"
+                    onclick="return confirm('Delete service @Model.Service.Name?')">
+              <i class="bi bi-trash me-1"></i>Delete
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plugins -->
+    <div class="card">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>Plugins (@Model.Plugins.Count)</span>
+        <a href="/plugins/create?serviceId=@Model.Service.Id" class="btn btn-outline-primary btn-sm">+ Add</a>
+      </div>
+      <div class="card-body p-0">
+        @if (!Model.Plugins.Any())
+        {
+          <div class="p-3 text-muted small">No plugins configured</div>
+        }
+        else
+        {
+          <table class="table table-sm mb-0">
+            <tbody>
+            @foreach (var p in Model.Plugins)
+            {
+              <tr>
+                <td>@p.Name</td>
+                <td>@(p.Enabled ? "✅" : "❌")</td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Routes -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>Routes (@Model.Routes.Count)</span>
+        <a href="/routes/create?serviceId=@Model.Service.Id" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Add Route
+        </a>
+      </div>
+      <div class="card-body p-0">
+        @if (!Model.Routes.Any())
+        {
+          <div class="p-3 text-muted">No routes yet.</div>
+        }
+        else
+        {
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr><th>Name</th><th>Paths</th><th>Methods</th><th>Strip Path</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var r in Model.Routes)
+            {
+              <tr>
+                <td>@(r.Name ?? <span class="text-muted">—</span>)</td>
+                <td><code>@string.Join(", ", r.Paths)</code></td>
+                <td>
+                  @foreach (var m in r.Methods)
+                  {
+                    <span class="badge bg-info text-dark me-1">@m</span>
+                  }
+                </td>
+                <td>@(r.StripPath ? "✅" : "❌")</td>
+                <td>
+                  <form method="post" action="/routes/@r.Id/delete">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="serviceId" value="@Model.Service.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Delete this route?')">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,6 +1,8 @@
 using KongPortal.Data;
 using KongPortal.Models.Domain;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Mail;
 
 namespace KongPortal.Services;
 
@@ -65,37 +67,93 @@ public class NotificationService
 
     public async Task SendNewCredential(ConsumerProfile profile, string authType, object credential)
     {
-        // TODO: plug in your SMTP / Teams / Slack
-        // Credential is delivered here — never stored in DB, never shown in UI
+        if (string.IsNullOrEmpty(profile.ContactEmail))
+        {
+            _logger.LogWarning("No contact email for {Consumer} — skipping notification", 
+                profile.KongConsumerUsername);
+            return;
+        }
 
-        _logger.LogInformation(
-            "Credential notification → {Email} for {Consumer} [{AuthType}]",
-            profile.ContactEmail, profile.KongConsumerUsername, authType);
+        var subject = $"[Kong Portal] Credential Rotated — {profile.ServiceName}";
+        var body    = BuildEmailBody(profile, authType, credential);
 
-        // Example email body (implement with SmtpClient or SendGrid)
-        var body = BuildEmailBody(profile, authType, credential);
+        try
+        {
+            await SendEmail(profile.ContactEmail, subject, body);
+            _logger.LogInformation(
+                "Notification sent → {Email} for {Consumer}",
+                profile.ContactEmail, profile.KongConsumerUsername);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to notify {Email} for {Consumer}",
+                profile.ContactEmail, profile.KongConsumerUsername);
+        }
+    }
 
-        // Uncomment and configure when ready:
-        // await SendEmail(profile.ContactEmail, "Kong API Credential Rotation", body);
-        // await SendSlack(profile.ContactSlack, body);
+    private async Task SendEmail(string to, string subject, string body)
+    {
+        var smtpHost = _config["Notification:SmtpHost"];
+        if (string.IsNullOrEmpty(smtpHost))
+        {
+            _logger.LogWarning("SMTP not configured — email not sent to {To}", to);
+            return;
+        }
 
-        await Task.CompletedTask;
+        var port     = int.Parse(_config["Notification:SmtpPort"] ?? "587");
+        var user     = _config["Notification:SmtpUser"];
+        var pass     = _config["Notification:SmtpPassword"];
+        var from     = _config["Notification:FromEmail"] ?? "kong-portal@internal.com";
+        var useSsl   = bool.Parse(_config["Notification:UseSsl"] ?? "true");
+
+        using var client = new SmtpClient(smtpHost, port)
+        {
+            EnableSsl   = useSsl,
+            Credentials = !string.IsNullOrEmpty(user)
+                ? new NetworkCredential(user, pass)
+                : null
+        };
+
+        var message = new MailMessage(from, to, subject, body)
+        {
+            IsBodyHtml = true
+        };
+
+        await client.SendMailAsync(message);
     }
 
     private string BuildEmailBody(ConsumerProfile profile, string authType, object credential)
     {
+        var credJson = System.Text.Json.JsonSerializer.Serialize(
+            credential,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
         return $"""
-            Hi {profile.ContactName},
-
-            Your Kong API credentials for {profile.ServiceName} have been rotated.
-
-            Auth Type: {authType}
-            Credential: {System.Text.Json.JsonSerializer.Serialize(credential)}
-
-            Please update your configuration immediately.
-            Your old credentials will be revoked after the grace period.
-
-            Kong DevOps Portal
+            <html><body style="font-family:sans-serif;max-width:600px;margin:auto">
+            <h2 style="color:#1a1f36">🔐 Kong API Credential Rotation</h2>
+            <p>Hi <strong>{profile.ContactName}</strong>,</p>
+            <p>Your Kong credentials have been rotated for:</p>
+            <table style="border-collapse:collapse;width:100%">
+              <tr><td style="padding:8px;background:#f8f9fa;font-weight:bold">Service</td>
+                  <td style="padding:8px">{profile.ServiceName}</td></tr>
+              <tr><td style="padding:8px;background:#f8f9fa;font-weight:bold">Consumer</td>
+                  <td style="padding:8px">{profile.KongConsumerUsername}</td></tr>
+              <tr><td style="padding:8px;background:#f8f9fa;font-weight:bold">Auth Type</td>
+                  <td style="padding:8px">{authType}</td></tr>
+              <tr><td style="padding:8px;background:#f8f9fa;font-weight:bold">Team</td>
+                  <td style="padding:8px">{profile.TeamName}</td></tr>
+            </table>
+            <h3>New Credential</h3>
+            <pre style="background:#f8f9fa;padding:16px;border-radius:8px">{credJson}</pre>
+            <p style="color:#dc3545"><strong>⚠️ Action Required:</strong>
+              Update your configuration immediately.
+              Your old credentials will be revoked after the grace period.
+            </p>
+            <p style="color:#6c757d;font-size:0.85rem">
+              Sent by Kong DevOps Portal — do not reply to this email.
+            </p>
+            </body></html>
             """;
     }
 }

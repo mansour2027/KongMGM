@@ -1,0 +1,22 @@
+@model List<KongPortal.Models.Kong.KongRoute>
+@{ ViewData["Title"] = "Routes"; }
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Name</th><th>Paths</th><th>Methods</th><th>Strip Path</th></tr>
+      </thead>
+      <tbody>
+      @foreach (var r in Model)
+      {
+        <tr>
+          <td>@(r.Name ?? "—")</td>
+          <td><code>@string.Join(", ", r.Paths)</code></td>
+          <td>@foreach(var m in r.Methods){ <span class="badge bg-info text-dark me-1">@m</span> }</td>
+          <td>@(r.StripPath ? "✅" : "❌")</td>
+        </tr>
+      }
+      </tbody>
+    </table>
+  </div>
+</div>

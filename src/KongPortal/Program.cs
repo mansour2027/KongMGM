@@ -45,9 +45,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Authorization policies
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(Policies.CanView,   p => p.RequireRole(Roles.Viewer, Roles.Operator, Roles.Admin));
-    options.AddPolicy(Policies.CanOperate,p => p.RequireRole(Roles.Operator, Roles.Admin));
-    options.AddPolicy(Policies.CanAdmin,  p => p.RequireRole(Roles.Admin));
+    options.AddPolicy(Policies.CanView,    p => p.RequireRole(Roles.Viewer, Roles.Operator, Roles.Admin));
+    options.AddPolicy(Policies.CanOperate, p => p.RequireRole(Roles.Operator, Roles.Admin));
+    options.AddPolicy(Policies.CanAdmin,   p => p.RequireRole(Roles.Admin));
 });
 
 // CSRF
@@ -57,11 +57,22 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SameSite = SameSiteMode.Strict;
 });
 
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
+        name: "sqlserver",
+        tags: new[] { "db" })
+    .AddUrlGroup(
+        new Uri((builder.Configuration["Kong:AdminUrl"] ?? "http://kong:8001") + "/status"),
+        name: "kong-admin",
+        tags: new[] { "kong" });
+
 // Kong Admin HTTP Client
 builder.Services.AddHttpClient<KongAdminClient>(client =>
 {
     client.BaseAddress = new Uri(
-        builder.Configuration["Kong:AdminUrl"] 
+        builder.Configuration["Kong:AdminUrl"]
         ?? throw new InvalidOperationException("Kong:AdminUrl not configured"));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
@@ -76,12 +87,13 @@ builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-// Migrate DB on startup
+// Startup: Migrate + Seed
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
     await DbSeeder.SeedRolesAsync(scope.ServiceProvider);
+    await DbSeeder.SeedAdminUserAsync(scope.ServiceProvider);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -96,6 +108,9 @@ app.UseRouting();
 app.UseSerilogRequestLogging();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Health endpoint - no auth required
+app.MapHealthChecks("/health");
 
 app.MapControllerRoute(
     name: "default",
